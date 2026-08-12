@@ -2,7 +2,7 @@ public abstract class Exercise {
     private String name;
     private String targetMuscleGroup;
 
-    public void Exercise(String name, String targetMuscleGroup) {
+    public Exercise(String name, String targetMuscleGroup) {
         this.name = name;
         this.targetMuscleGroup = targetMuscleGroup;
     }
