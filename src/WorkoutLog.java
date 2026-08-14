@@ -10,6 +10,7 @@ public class WorkoutLog {
     }
 
     public void printReport() {
+        System.out.printf("Тренеровка за %s\n");
         for (Exercise e : exercises) {
             if (e instanceof Reportable rep)
                 rep.printSummary();
