@@ -15,6 +15,6 @@ public class RepsExercise extends Exercise implements Reportable{
 
     @Override
     public void printSummary() {
-        System.out.printf("[%s] %s — %d (x%d)", getTargetMuscleGroup(), getName(), repsPerSet, sets);
+        System.out.printf("[%s] %s — %d x %d \n", getTargetMuscleGroup(), getName(), repsPerSet, sets);
     }
 }

@@ -10,10 +10,14 @@ public class WorkoutLog {
     }
 
     public void printReport() {
-        System.out.printf("Тренеровка за %s\n");
+        if (exercises.size() < 1) return;
+
+        date = LocalDate.now();
+        System.out.printf("\nТренеровка за %s\n---\n", date);
         for (Exercise e : exercises) {
             if (e instanceof Reportable rep)
                 rep.printSummary();
         }
+        System.out.println();
     }
 }

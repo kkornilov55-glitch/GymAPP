@@ -13,7 +13,7 @@ public class TimedExercise extends Exercise implements Reportable {
     }
     @Override
     public void printSummary() {
-        System.out.printf("[%s] %s — %d (x%d)", getTargetMuscleGroup(), getName(), durationSeconds, sets);
+        System.out.printf("[%s] %s — %d сек х %d \n", getTargetMuscleGroup(), getName(), durationSeconds, sets);
     }
 
 
