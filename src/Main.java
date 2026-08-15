@@ -1,10 +1,10 @@
 import java.util.Scanner;
 
 public class Main {
-    private Scanner in = new Scanner(System.in);
-    private WorkoutLog wlog = new WorkoutLog();
+    private final Scanner in = new Scanner(System.in);
+    private final WorkoutLog wlog = new WorkoutLog();
 
-    private final String MAIN_MENU = """
+    private static final String MAIN_MENU = """
                     
                                      МЕНЮ
                     -----------------------------------------
@@ -13,7 +13,7 @@ public class Main {
                     \t3. Выйти
                     -----------------------------------------
                     """;
-    private final String ADD_EXERCISE_MENU = """
+    private static final String ADD_EXERCISE_MENU = """
                         
                         -----------------------------------------
                                  ДОБАВЛЕНИЕ УПРАЖНЕНИЯ
@@ -24,21 +24,21 @@ public class Main {
                         \t2. На время (пример: планка)
                         -----------------------------------------
                         """;
-    private final String ERROR_INVALID_CHOICE = """
+    private static final String ERROR_INVALID_CHOICE = """
                         
                         ---
                         Ошибка: некорректный номер действия.
                         ---
                         
                         """;
-    private final String ERROR_NOT_A_NUMBER = """
+    private static final String ERROR_NOT_A_NUMBER = """
                         
                         ---
                         Ошибка: пожалуйста, введите целое число.
                         ---
                         
                         """;
-    private final String SUCCESS_EXERCISE_ADDED = """
+    private static final String SUCCESS_EXERCISE_ADDED = """
             ------
             Упражнение успешно добавлено!
             ------
@@ -80,7 +80,7 @@ public class Main {
                 System.out.println(SUCCESS_EXERCISE_ADDED);
                 break;
             case 2:
-                durationSeconds = readInt("Время: ");
+                durationSeconds = readInt("Время (в секундах): ");
                 TimedExercise timedExercise = new TimedExercise(exerciseName, targetMuscleGroup, sets, durationSeconds);
                 wlog.addExercise(timedExercise);
                 System.out.println(SUCCESS_EXERCISE_ADDED);
@@ -103,7 +103,7 @@ public class Main {
     }
     private String readStr(String prompt) {
         System.out.print(prompt);
-        return in.nextLine();
+        return in.nextLine().trim();
     }
 }
 
