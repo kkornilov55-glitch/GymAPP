@@ -1,4 +1,6 @@
-public class RepsExercise extends Exercise implements Reportable{
+package com.example.workout_api;
+
+public class RepsExercise extends Exercise implements Reportable {
     private int sets;
     private int repsPerSet;
 

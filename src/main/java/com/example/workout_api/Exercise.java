@@ -1,3 +1,5 @@
+package com.example.workout_api;
+
 public abstract class Exercise {
     private String name;
     private String targetMuscleGroup;

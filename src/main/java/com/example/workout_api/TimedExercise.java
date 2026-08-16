@@ -1,3 +1,5 @@
+package com.example.workout_api;
+
 public class TimedExercise extends Exercise implements Reportable {
     private int durationSeconds;
     private int sets;
