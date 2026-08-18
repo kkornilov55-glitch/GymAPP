@@ -1,8 +1,5 @@
 package com.example.workout_api;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +7,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 public class WorkoutController {
-    private final List<Exercise> databaseExercises = new ArrayList<>(List.of(
+    private List<Exercise> databaseExercises = new ArrayList<>(List.of(
             new RepsExercise("Подтягивания", "Спина", 4, 10),
             new RepsExercise("Отжимания на брусьях", "Грудь", 4, 15),
             new TimedExercise("Планка", "Кор", 3, 60)
@@ -30,5 +27,10 @@ public class WorkoutController {
             }
             return filteredExercises;
         }
+    }
+    @PostMapping("/workouts")
+    public String addWorkout(@RequestBody RepsExercise exercise) {
+        databaseExercises.add(exercise);
+        return "Упражнение: " + exercise.getName() + " успешно добавлено!";
     }
 }
