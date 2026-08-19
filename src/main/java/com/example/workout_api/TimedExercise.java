@@ -1,14 +1,31 @@
 package com.example.workout_api;
 
-public class TimedExercise extends Exercise implements Reportable {
-    private int durationSeconds;
-    private int sets;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-    public TimedExercise(String name, String targetMuscleGroup, int sets, int durationSeconds) {
+public class TimedExercise extends Exercise implements Reportable {
+
+    private final int durationSeconds;
+    private final int sets;
+
+    @JsonCreator
+    public TimedExercise(@JsonProperty("name") String name,
+                         @JsonProperty("targetMuscleGroup") String targetMuscleGroup,
+                         @JsonProperty("sets") int sets,
+                         @JsonProperty("durationSeconds") int durationSeconds) {
         super(name, targetMuscleGroup);
         this.sets = sets;
         this.durationSeconds = durationSeconds;
     }
+
+    public int getDurationSeconds() {
+        return durationSeconds;
+    }
+
+    public int getSets() {
+        return sets;
+    }
+
     @Override
     public double calculateTotalVolume() {
         return durationSeconds * sets;

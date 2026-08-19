@@ -1,12 +1,17 @@
 package com.example.workout_api;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class RepsExercise extends Exercise implements Reportable {
-    private int sets;
-    private int repsPerSet;
+    private final int sets;
+    private final int repsPerSet;
 
-    public RepsExercise() {};
-
-    public RepsExercise(String name, String targetMuscleGroup, int sets, int repsPerSet) {
+    @JsonCreator
+    public RepsExercise(@JsonProperty("name") String name,
+                        @JsonProperty("targetMuscleGroup") String targetMuscleGroup,
+                        @JsonProperty("sets") int sets,
+                        @JsonProperty("repsPerSet") int repsPerSet) {
         super(name, targetMuscleGroup);
         this.sets = sets;
         this.repsPerSet = repsPerSet;
@@ -16,16 +21,8 @@ public class RepsExercise extends Exercise implements Reportable {
         return sets;
     }
 
-    public void setSets(int sets) {
-        this.sets = sets;
-    }
-
     public int getRepsPerSet() {
         return repsPerSet;
-    }
-
-    public void setRepsPerSet(int repsPerSet) {
-        this.repsPerSet = repsPerSet;
     }
 
     @Override

@@ -1,4 +1,6 @@
 package com.example.workout_api;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -28,8 +30,9 @@ public class WorkoutController {
             return filteredExercises;
         }
     }
+
     @PostMapping("/workouts")
-    public String addWorkout(@RequestBody RepsExercise exercise) {
+    public String addWorkout(@RequestBody Exercise exercise) {
         databaseExercises.add(exercise);
         return "Упражнение: " + exercise.getName() + " успешно добавлено!";
     }

@@ -1,21 +1,24 @@
 package com.example.workout_api;
 
-public abstract class Exercise {
-    private String name;
-    private String targetMuscleGroup;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-    public Exercise() {};
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type"
+)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = RepsExercise.class, name = "reps"),
+        @JsonSubTypes.Type(value = TimedExercise.class, name = "timed")
+})
+
+public abstract class Exercise {
+    private final String name;
+    private final String targetMuscleGroup;
 
     public Exercise(String name, String targetMuscleGroup) {
         this.name = name;
-        this.targetMuscleGroup = targetMuscleGroup;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setTargetMuscleGroup(String targetMuscleGroup) {
         this.targetMuscleGroup = targetMuscleGroup;
     }
 
