@@ -9,31 +9,21 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 public class WorkoutController {
-    private List<Exercise> databaseExercises = new ArrayList<>(List.of(
-            new RepsExercise("Подтягивания", "Спина", 4, 10),
-            new RepsExercise("Отжимания на брусьях", "Грудь", 4, 15),
-            new TimedExercise("Планка", "Кор", 3, 60)
-    ));
+
+    private final WorkoutService workoutService;
+
+    public WorkoutController(WorkoutService workoutService) {
+        this.workoutService = workoutService;
+    }
 
     @GetMapping("/workouts")
     public List<Exercise> getMyWorkouts(@RequestParam(required = false) String name) {
-        if (name == null)
-            return databaseExercises;
-        else {
-            List<Exercise> filteredExercises = new ArrayList<>();
-            for (Exercise e : databaseExercises) {
-                if (e.getName().equalsIgnoreCase(name)) {
-                    filteredExercises.add(e);
-                    break;
-                }
-            }
-            return filteredExercises;
-        }
+        return workoutService.getWorkouts(name);
     }
 
     @PostMapping("/workouts")
     public String addWorkout(@RequestBody Exercise exercise) {
-        databaseExercises.add(exercise);
+        workoutService.addWorkout(exercise);
         return "Упражнение: " + exercise.getName() + " успешно добавлено!";
     }
 }
