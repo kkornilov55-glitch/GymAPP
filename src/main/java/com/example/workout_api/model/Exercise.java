@@ -1,4 +1,4 @@
-package com.example.workout_api;
+package com.example.workout_api.model;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

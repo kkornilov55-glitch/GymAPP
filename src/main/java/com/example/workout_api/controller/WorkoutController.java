@@ -1,5 +1,7 @@
-package com.example.workout_api;
+package com.example.workout_api.controller;
+import com.example.workout_api.model.Exercise;
 import org.springframework.web.bind.annotation.*;
+import com.example.workout_api.service.WorkoutService;
 
 import java.util.List;
 

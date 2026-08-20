@@ -1,5 +1,8 @@
-package com.example.workout_api;
+package com.example.workout_api.service;
 
+import com.example.workout_api.model.Exercise;
+import com.example.workout_api.model.RepsExercise;
+import com.example.workout_api.model.TimedExercise;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
