@@ -4,10 +4,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -27,17 +30,22 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
 
     @Override
     public void consume(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            Long chatId = update.getMessage().getChatId();
-            String text = update.getMessage().getText();
+        if (update.hasMessage()) {
+            var chatId = update.getMessage().getChatId();
+            var text = update.getMessage().getText();
+            var userName = update.getMessage().getFrom().getFirstName();
 
             System.out.printf("Получено сообщение: \"%s\", от пользователя \"%s\"%n", text, chatId);
             if (text.equals("/start")) {
-                sendMessage(chatId, "Привет! Я бот дневник тренеровок, готов к работе!");
+                sendMessage(
+                        chatId,
+                        String.format("Привет %s! Я бот дневник тренеровок, готов к работе!", userName));
                 sendMainMenu(chatId);
             } else {
                 sendMessage(chatId, "Я пока не знаю такой команды");
             }
+        } else if (update.hasCallbackQuery()) {
+            handleCallBackQuery(update.getCallbackQuery());
         }
     }
     private void sendMessage(Long chatId, String text) {
@@ -88,6 +96,38 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             client.execute(alert);
         } catch (TelegramApiException ex) {
             ex.printStackTrace();
+        }
+    }
+    private void handleCallBackQuery(CallbackQuery callbackQuery) {
+        var chatId = callbackQuery.getFrom().getId();
+        var data = callbackQuery.getData();
+
+        switch (data) {
+            case "bot_name" -> sendMessage(chatId, "Меня зовут Кирилл) Будем знакомы");
+            case "add_exercise" -> choiceOfExerciseType(chatId);
+            default -> {
+                sendMessage(chatId, "Неизвестная команда! Выберите что-то из меню");
+                sendMainMenu(chatId);
+            }
+        }
+    }
+    private void choiceOfExerciseType(Long chatId) {
+        SendMessage message = SendMessage.builder()
+                .text("Выберите тип упражнения")
+                .chatId(chatId)
+                .build();
+
+        List<KeyboardRow> keyboardRows = List.of (
+                new KeyboardRow("На количество повторений"),
+                new KeyboardRow("На время")
+        );
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(keyboardRows);
+        message.setReplyMarkup(markup);
+
+        try {
+            client.execute(message);
+        } catch (TelegramApiException e) {
+            adminAlert(e, chatId);
         }
     }
 }
