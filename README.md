@@ -5,7 +5,7 @@
 
 ## Стек технологий
 - **Язык:** Java 26
-- **Фреймворки:** Spring Boot, telegrambots-client, telegrambots-springboot-longpolling-starter
+- **Фреймворки:** Spring Boot
 - **Интерфейс:** Telegram Bot API (long-polling)
 - **База данных:** Пока сохранение данных не реализовано, однако запланирована реализация на PostgreSQL
 
