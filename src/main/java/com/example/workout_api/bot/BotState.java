@@ -1,0 +1,11 @@
+package com.example.workout_api.bot;
+
+public enum BotState {
+    DEFAULT,
+    WAITING_FOR_EXERCISE_TYPE,
+    WAITING_FOR_EXERCISE_NAME,
+    WAITING_FOR_TARGET_MUSCLE_GROUP,
+    WAITING_FOR_SETS,
+    WAITING_FOR_REPS,
+    WAITING_FOR_TIME
+}

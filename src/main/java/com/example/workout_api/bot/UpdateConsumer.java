@@ -7,7 +7,9 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
@@ -15,6 +17,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
@@ -28,6 +32,12 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         this.client = client;
     }
 
+    private Map<Long, BotState> userStates = new ConcurrentHashMap<>();
+
+    private BotState getUserState(Long chatId) {
+        return userStates.getOrDefault(chatId, BotState.DEFAULT);
+    }
+
     @Override
     public void consume(Update update) {
         if (update.hasMessage()) {
@@ -36,13 +46,69 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             var userName = update.getMessage().getFrom().getFirstName();
 
             System.out.printf("Получено сообщение: \"%s\", от пользователя \"%s\"%n", text, chatId);
-            if (text.equals("/start")) {
-                sendMessage(
-                        chatId,
-                        String.format("Привет %s! Я бот дневник тренеровок, готов к работе!", userName));
+
+            if (text.equals("/menu") || text.equals("/start")) {
+                if (text.equals("/start"))
+                    sendMessage(
+                            chatId,
+                            String.format("Привет %s! Я бот дневник тренировок, готов к работе!", userName));
+
                 sendMainMenu(chatId);
-            } else {
-                sendMessage(chatId, "Я пока не знаю такой команды");
+                userStates.put(chatId, BotState.DEFAULT);
+                return;
+            }
+
+            BotState state = getUserState(chatId);
+            switch (state) {
+                case DEFAULT -> {
+                    sendMessage(chatId, "Я не знаю такой команды");
+                    sendMainMenu(chatId);
+                }
+                case WAITING_FOR_EXERCISE_TYPE -> {
+                    //СОЗДАНИЕ ЧЕРНОВИКА УПРАЖНЕНИЯ
+                    if (text.equals("На повторы")) {
+                        //Запись типа
+                    } else if (text.equals("На время")) {
+                        //Запись типа
+                    }
+
+                    sendMessageAndRemoveKeyboard(chatId, "Отлично! Напишите название упражнения:");
+                    userStates.put(chatId, BotState.WAITING_FOR_EXERCISE_NAME);
+                }
+                case WAITING_FOR_EXERCISE_NAME -> {
+                    //Запись имени упражнения
+
+                    sendMessage(chatId, "На какую группу(ы) мышц это упражнение (одним сообщением):");
+                    userStates.put(chatId, BotState.WAITING_FOR_TARGET_MUSCLE_GROUP);
+                }
+                case WAITING_FOR_TARGET_MUSCLE_GROUP -> {
+                    //Запись группы мышц
+
+                    sendMessage(chatId, "Количество подходов:");
+                    userStates.put(chatId, BotState.WAITING_FOR_SETS);
+                }
+                case WAITING_FOR_SETS -> {
+                    //Запись количества подходов
+
+                    sendMessage(chatId, "Количество повторений в подходе/времени выполнения упражнения:");
+                    //Количество повторений или время выполнения определённое по типу упражнения из черновика, пока заглушка
+                    userStates.put(chatId, BotState.WAITING_FOR_REPS);
+                }
+                case WAITING_FOR_REPS -> {
+                    //Запись количества повторений
+
+                    sendMessage(chatId, "Упражнение добавлено!");
+                    sendMainMenu(chatId);
+                    userStates.put(chatId, BotState.DEFAULT);
+                }
+                case WAITING_FOR_TIME -> {
+                    //Запись времени выполнения
+
+                    sendMessage(chatId, "Упражнение добавлено!");
+                    sendMainMenu(chatId);
+                    userStates.put(chatId, BotState.DEFAULT);
+                }
+
             }
         } else if (update.hasCallbackQuery()) {
             handleCallBackQuery(update.getCallbackQuery());
@@ -112,13 +178,16 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         }
     }
     private void choiceOfExerciseType(Long chatId) {
+
+        userStates.put(chatId, BotState.WAITING_FOR_EXERCISE_TYPE);
+
         SendMessage message = SendMessage.builder()
                 .text("Выберите тип упражнения")
                 .chatId(chatId)
                 .build();
 
         List<KeyboardRow> keyboardRows = List.of (
-                new KeyboardRow("На количество повторений"),
+                new KeyboardRow("На повторы"),
                 new KeyboardRow("На время")
         );
         ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(keyboardRows);
@@ -126,6 +195,19 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
 
         try {
             client.execute(message);
+        } catch (TelegramApiException e) {
+            adminAlert(e, chatId);
+        }
+    }
+    private void sendMessageAndRemoveKeyboard(Long chatId, String text) {
+        SendMessage message = new SendMessage(String.valueOf(chatId), text);
+        ReplyKeyboardRemove keyboardRemove = ReplyKeyboardRemove.builder()
+                .removeKeyboard(true)
+                .build();
+        message.setReplyMarkup(keyboardRemove);
+        try {
+            client.execute(message);
+            System.out.printf("Сообщение: \"%s\" успешно отправлено!\n", text);
         } catch (TelegramApiException e) {
             adminAlert(e, chatId);
         }
