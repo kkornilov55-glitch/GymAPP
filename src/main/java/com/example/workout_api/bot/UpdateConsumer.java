@@ -16,6 +16,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,6 +36,10 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
     private Map<Long, ExerciseDraft> userExerciseDrafts = new ConcurrentHashMap<>();
 
     private Map<Long, List<Exercise>> userExercises = new ConcurrentHashMap<>();
+
+    private List<Exercise> getUserExercises(Long chatId) {
+        return userExercises.computeIfAbsent(chatId, k -> new ArrayList<>());
+    }
 
     private ExerciseDraft getUserExerciseDraft(Long chatId) {
         if (!userExerciseDrafts.containsKey(chatId))
@@ -111,10 +116,15 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
                 .text("Добавить упражнение ")
                 .callbackData("add_exercise")
                 .build();
+        var buttonPrintExercisesList = InlineKeyboardButton.builder()
+                .text("Вывести список упражнений")
+                .callbackData("exercises_list")
+                .build();
 
         List<InlineKeyboardRow> keyboardRows = List.of(
                 new InlineKeyboardRow(buttonBotName),
-                new InlineKeyboardRow(buttonAddExercise)
+                new InlineKeyboardRow(buttonAddExercise),
+                new InlineKeyboardRow(buttonPrintExercisesList)
         );
 
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup(keyboardRows);
@@ -145,12 +155,14 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         switch (data) {
             case "bot_name" -> sendMessage(chatId, "Меня зовут Кирилл) Будем знакомы");
             case "add_exercise" -> choiceOfExerciseType(chatId);
+            case "exercises_list" -> printExercisesList(chatId);
             default -> {
                 sendMessage(chatId, "Неизвестная команда! Выберите что-то из меню");
                 sendMainMenu(chatId);
             }
         }
     }
+
     private void choiceOfExerciseType(Long chatId) {
 
         setUserState(chatId, BotState.WAITING_FOR_EXERCISE_TYPE);
@@ -186,6 +198,24 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             adminAlert(e, chatId);
         }
     }
+
+    private void printExercisesList(Long chatId) {
+        var exercises = getUserExercises(chatId);
+        if (exercises.isEmpty()) {
+            sendMessage(chatId, "Для начала необходимо добавить хотя бы 1 упражнение!");
+            return;
+        }
+
+        StringBuilder messageBuilder = new StringBuilder("Ваш список упражнений:\n\n");
+        for (Exercise e : exercises) {
+            if (e instanceof Reportable rep)
+                messageBuilder.append(rep.getSummary());
+            else
+                messageBuilder.append(e.getName() + "\n");
+        }
+        sendMessage(chatId, messageBuilder.toString());
+    }
+
     private void handleExerciseType(Long chatId, ExerciseDraft draft, String textType) {
         if (textType.equals("На повторы"))
             draft.setExerciseType(ExerciseType.REPS);
@@ -223,7 +253,7 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
                     setUserState(chatId, BotState.WAITING_FOR_REPS);
                 }
                 case TIMED -> {
-                    sendMessage(chatId, "Время выполнения упражнения:");
+                    sendMessage(chatId, "Время выполнения упражнения (сек):");
                     setUserState(chatId, BotState.WAITING_FOR_TIME);
                 }
             }
@@ -234,15 +264,12 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
     private void handleExerciseReps(Long chatId, ExerciseDraft draft, String reps) {
         try {
             int convertedReps = Integer.parseInt(reps);
-
             draft.setReps(convertedReps);
 
             var exercise = convertToExercise(draft);
-            //Сохранение в список упражнений пользователя
+            saveExercise(chatId, exercise);
 
-            sendMessage(chatId, "Упражнение добавлено!");
             sendMainMenu(chatId);
-            setUserState(chatId, BotState.DEFAULT);
         } catch (NumberFormatException e) {
             sendMessage(chatId, "Пожалуйста, введите количество повторений целым числом! Попробуйте снова:");
         }
@@ -250,15 +277,12 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
     private void handleExerciseTime(Long chatId, ExerciseDraft draft, String time) {
         try {
             int convertedTime = Integer.parseInt(time);
-
             draft.setDuration(convertedTime);
 
             var exercise = convertToExercise(draft);
-            //Сохранение в список упражнений пользователя
+            saveExercise(chatId, exercise);
 
-            sendMessage(chatId, "Упражнение добавлено!");
             sendMainMenu(chatId);
-            setUserState(chatId, BotState.DEFAULT);
         } catch (NumberFormatException e) {
             sendMessage(chatId, "Пожалуйста, введите время выполнения целым числом! Попробуйте снова:");
         }
@@ -279,5 +303,13 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
                     draft.getDuration());
         }
         return exercise;
+    }
+    private void saveExercise(Long chatId, Exercise exercise) {
+        var exercises = getUserExercises(chatId);
+        exercises.add(exercise);
+        userExerciseDrafts.remove(chatId);
+
+        sendMessage(chatId, "Упражнение добавлено!");
+        setUserState(chatId, BotState.DEFAULT);
     }
 }

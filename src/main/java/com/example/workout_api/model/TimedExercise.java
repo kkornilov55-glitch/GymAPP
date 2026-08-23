@@ -31,8 +31,8 @@ public class TimedExercise extends Exercise implements Reportable {
         return durationSeconds * sets;
     }
     @Override
-    public void printSummary() {
-        System.out.printf("[%s] %s — %d сек х %d \n", getTargetMuscleGroup(), getName(), durationSeconds, sets);
+    public String getSummary() {
+        return String.format("[%s] %s — %d сек х %d \n", getTargetMuscleGroup(), getName(), durationSeconds, sets);
     }
 
 
