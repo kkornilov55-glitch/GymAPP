@@ -1,0 +1,4 @@
+spring.application.name=workout-api
+telegram.bot.username=YOUR_BOT_USERNAME_HERE
+telegram.bot.token=YOUR_BOT_TOKEN_HERE
+admin.chatId=YOUR_CHAT_ID_HERE
