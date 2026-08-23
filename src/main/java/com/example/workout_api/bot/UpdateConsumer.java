@@ -1,5 +1,6 @@
 package com.example.workout_api.bot;
 
+import com.example.workout_api.model.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
@@ -7,7 +8,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
@@ -32,10 +32,22 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         this.client = client;
     }
 
-    private Map<Long, BotState> userStates = new ConcurrentHashMap<>();
+    private Map<Long, ExerciseDraft> userExerciseDrafts = new ConcurrentHashMap<>();
+
+    private Map<Long, List<Exercise>> userExercises = new ConcurrentHashMap<>();
+
+    private ExerciseDraft getUserExerciseDraft(Long chatId) {
+        if (!userExerciseDrafts.containsKey(chatId))
+            userExerciseDrafts.put(chatId, new ExerciseDraft());
+        return userExerciseDrafts.get(chatId);
+    }
 
     private BotState getUserState(Long chatId) {
-        return userStates.getOrDefault(chatId, BotState.DEFAULT);
+        return getUserExerciseDraft(chatId).getUserState();
+    }
+    private void setUserState(Long chatId, BotState state) {
+        ExerciseDraft draft = getUserExerciseDraft(chatId);
+        draft.setUserState(state);
     }
 
     @Override
@@ -54,61 +66,23 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
                             String.format("Привет %s! Я бот дневник тренировок, готов к работе!", userName));
 
                 sendMainMenu(chatId);
-                userStates.put(chatId, BotState.DEFAULT);
+                setUserState(chatId, BotState.DEFAULT);
                 return;
             }
 
-            BotState state = getUserState(chatId);
+            var draft = getUserExerciseDraft(chatId);
+            var state = getUserState(chatId);
             switch (state) {
                 case DEFAULT -> {
                     sendMessage(chatId, "Я не знаю такой команды");
                     sendMainMenu(chatId);
                 }
-                case WAITING_FOR_EXERCISE_TYPE -> {
-                    //СОЗДАНИЕ ЧЕРНОВИКА УПРАЖНЕНИЯ
-                    if (text.equals("На повторы")) {
-                        //Запись типа
-                    } else if (text.equals("На время")) {
-                        //Запись типа
-                    }
-
-                    sendMessageAndRemoveKeyboard(chatId, "Отлично! Напишите название упражнения:");
-                    userStates.put(chatId, BotState.WAITING_FOR_EXERCISE_NAME);
-                }
-                case WAITING_FOR_EXERCISE_NAME -> {
-                    //Запись имени упражнения
-
-                    sendMessage(chatId, "На какую группу(ы) мышц это упражнение (одним сообщением):");
-                    userStates.put(chatId, BotState.WAITING_FOR_TARGET_MUSCLE_GROUP);
-                }
-                case WAITING_FOR_TARGET_MUSCLE_GROUP -> {
-                    //Запись группы мышц
-
-                    sendMessage(chatId, "Количество подходов:");
-                    userStates.put(chatId, BotState.WAITING_FOR_SETS);
-                }
-                case WAITING_FOR_SETS -> {
-                    //Запись количества подходов
-
-                    sendMessage(chatId, "Количество повторений в подходе/времени выполнения упражнения:");
-                    //Количество повторений или время выполнения определённое по типу упражнения из черновика, пока заглушка
-                    userStates.put(chatId, BotState.WAITING_FOR_REPS);
-                }
-                case WAITING_FOR_REPS -> {
-                    //Запись количества повторений
-
-                    sendMessage(chatId, "Упражнение добавлено!");
-                    sendMainMenu(chatId);
-                    userStates.put(chatId, BotState.DEFAULT);
-                }
-                case WAITING_FOR_TIME -> {
-                    //Запись времени выполнения
-
-                    sendMessage(chatId, "Упражнение добавлено!");
-                    sendMainMenu(chatId);
-                    userStates.put(chatId, BotState.DEFAULT);
-                }
-
+                case WAITING_FOR_EXERCISE_TYPE -> handleExerciseType(chatId, draft, text);
+                case WAITING_FOR_EXERCISE_NAME -> handleExerciseName(chatId, draft, text);
+                case WAITING_FOR_TARGET_MUSCLE_GROUP -> handleMuscleGroup(chatId, draft, text);
+                case WAITING_FOR_SETS -> handleExerciseSets(chatId, draft, text);
+                case WAITING_FOR_REPS -> handleExerciseReps(chatId, draft, text);
+                case WAITING_FOR_TIME -> handleExerciseTime(chatId, draft, text);
             }
         } else if (update.hasCallbackQuery()) {
             handleCallBackQuery(update.getCallbackQuery());
@@ -179,7 +153,7 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
     }
     private void choiceOfExerciseType(Long chatId) {
 
-        userStates.put(chatId, BotState.WAITING_FOR_EXERCISE_TYPE);
+        setUserState(chatId, BotState.WAITING_FOR_EXERCISE_TYPE);
 
         SendMessage message = SendMessage.builder()
                 .text("Выберите тип упражнения")
@@ -211,5 +185,99 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         } catch (TelegramApiException e) {
             adminAlert(e, chatId);
         }
+    }
+    private void handleExerciseType(Long chatId, ExerciseDraft draft, String textType) {
+        if (textType.equals("На повторы"))
+            draft.setExerciseType(ExerciseType.REPS);
+        else if (textType.equals("На время"))
+            draft.setExerciseType(ExerciseType.TIMED);
+        else {
+            sendMessage(chatId, "Пожалуйста, выберите тип упражнения при помощи клавиатуры! Попробуйте снова:");
+            return;
+        }
+
+        sendMessageAndRemoveKeyboard(chatId, "Отлично! Напишите название упражнения:");
+        setUserState(chatId, BotState.WAITING_FOR_EXERCISE_NAME);
+    }
+    private void handleExerciseName(Long chatId, ExerciseDraft draft, String name) {
+        draft.setName(name.trim());
+
+        sendMessage(chatId, "На какую группу(ы) мышц это упражнение (одним сообщением):");
+        setUserState(chatId, BotState.WAITING_FOR_TARGET_MUSCLE_GROUP);
+    }
+    private void handleMuscleGroup(Long chatId, ExerciseDraft draft, String targetMuscleGroup) {
+        draft.setTargetMuscleGroup(targetMuscleGroup.trim());
+
+        sendMessage(chatId, "Количество подходов:");
+        setUserState(chatId, BotState.WAITING_FOR_SETS);
+    }
+    private void handleExerciseSets(Long chatId, ExerciseDraft draft, String sets) {
+        try {
+            int convertedSets = Integer.parseInt(sets);
+
+            draft.setSets(convertedSets);
+
+            switch (draft.getExerciseType()) {
+                case REPS -> {
+                    sendMessage(chatId, "Количество повторений в подходе:");
+                    setUserState(chatId, BotState.WAITING_FOR_REPS);
+                }
+                case TIMED -> {
+                    sendMessage(chatId, "Время выполнения упражнения:");
+                    setUserState(chatId, BotState.WAITING_FOR_TIME);
+                }
+            }
+        } catch (NumberFormatException e) {
+            sendMessage(chatId, "Пожалуйста, введите количество подходов целым числом! Попробуйте снова:");
+        }
+    }
+    private void handleExerciseReps(Long chatId, ExerciseDraft draft, String reps) {
+        try {
+            int convertedReps = Integer.parseInt(reps);
+
+            draft.setReps(convertedReps);
+
+            var exercise = convertToExercise(draft);
+            //Сохранение в список упражнений пользователя
+
+            sendMessage(chatId, "Упражнение добавлено!");
+            sendMainMenu(chatId);
+            setUserState(chatId, BotState.DEFAULT);
+        } catch (NumberFormatException e) {
+            sendMessage(chatId, "Пожалуйста, введите количество повторений целым числом! Попробуйте снова:");
+        }
+    }
+    private void handleExerciseTime(Long chatId, ExerciseDraft draft, String time) {
+        try {
+            int convertedTime = Integer.parseInt(time);
+
+            draft.setDuration(convertedTime);
+
+            var exercise = convertToExercise(draft);
+            //Сохранение в список упражнений пользователя
+
+            sendMessage(chatId, "Упражнение добавлено!");
+            sendMainMenu(chatId);
+            setUserState(chatId, BotState.DEFAULT);
+        } catch (NumberFormatException e) {
+            sendMessage(chatId, "Пожалуйста, введите время выполнения целым числом! Попробуйте снова:");
+        }
+    }
+    private Exercise convertToExercise(ExerciseDraft draft) {
+        ExerciseType type = draft.getExerciseType();
+        Exercise exercise = null;
+        switch (type) {
+            case REPS -> exercise = new RepsExercise(
+                    draft.getName(),
+                    draft.getTargetMuscleGroup(),
+                    draft.getSets(),
+                    draft.getReps());
+            case TIMED -> exercise = new TimedExercise(
+                    draft.getName(),
+                    draft.getTargetMuscleGroup(),
+                    draft.getSets(),
+                    draft.getDuration());
+        }
+        return exercise;
     }
 }
