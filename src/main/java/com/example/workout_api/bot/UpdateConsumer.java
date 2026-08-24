@@ -3,6 +3,7 @@ package com.example.workout_api.bot;
 import com.example.workout_api.model.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -21,21 +22,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+@Service
 public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
 
-    @Value("${admin.chatId}")
-    private long adminChatId;
-
-    private final TelegramClient client;
-
-    public UpdateConsumer(TelegramClient client) {
-        this.client = client;
-    }
+    private final MessageSender messageSender;
 
     private Map<Long, ExerciseDraft> userExerciseDrafts = new ConcurrentHashMap<>();
 
     private Map<Long, List<Exercise>> userExercises = new ConcurrentHashMap<>();
+
+    public UpdateConsumer(MessageSender messageSender) {
+        this.messageSender = messageSender;
+    }
 
     private List<Exercise> getUserExercises(Long chatId) {
         return userExercises.computeIfAbsent(chatId, k -> new ArrayList<>());
@@ -66,11 +64,11 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
 
             if (text.equals("/menu") || text.equals("/start")) {
                 if (text.equals("/start"))
-                    sendMessage(
+                    messageSender.sendMessage(
                             chatId,
                             String.format("Привет %s! Я бот дневник тренировок, готов к работе!", userName));
 
-                sendMainMenu(chatId);
+                messageSender.sendMainMenu(chatId);
                 setUserState(chatId, BotState.DEFAULT);
                 return;
             }
@@ -79,8 +77,8 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             var state = getUserState(chatId);
             switch (state) {
                 case DEFAULT -> {
-                    sendMessage(chatId, "Я не знаю такой команды");
-                    sendMainMenu(chatId);
+                    messageSender.sendMessage(chatId, "Я не знаю такой команды");
+                    messageSender.sendMainMenu(chatId);
                 }
                 case WAITING_FOR_EXERCISE_TYPE -> handleExerciseType(chatId, draft, text);
                 case WAITING_FOR_EXERCISE_NAME -> handleExerciseName(chatId, draft, text);
@@ -93,116 +91,29 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             handleCallBackQuery(update.getCallbackQuery());
         }
     }
-    private void sendMessage(Long chatId, String text) {
-        SendMessage message = new SendMessage(String.valueOf(chatId), text);
-        try {
-            client.execute(message);
-            System.out.printf("Сообщение: \"%s\" успешно отправлено!\n", text);
-        } catch (TelegramApiException e) {
-            adminAlert(e, chatId);
-        }
-    }
-    private void sendMainMenu(Long chatId) {
-        SendMessage message = SendMessage.builder()
-                .text("Меню:")
-                .chatId(chatId)
-                .build();
-
-        var buttonBotName = InlineKeyboardButton.builder()
-                .text("Как тебя зовут? ")
-                .callbackData("bot_name")
-                .build();
-        var buttonAddExercise = InlineKeyboardButton.builder()
-                .text("Добавить упражнение ")
-                .callbackData("add_exercise")
-                .build();
-        var buttonPrintExercisesList = InlineKeyboardButton.builder()
-                .text("Вывести список упражнений")
-                .callbackData("exercises_list")
-                .build();
-
-        List<InlineKeyboardRow> keyboardRows = List.of(
-                new InlineKeyboardRow(buttonBotName),
-                new InlineKeyboardRow(buttonAddExercise),
-                new InlineKeyboardRow(buttonPrintExercisesList)
-        );
-
-        InlineKeyboardMarkup markup = new InlineKeyboardMarkup(keyboardRows);
-
-        message.setReplyMarkup(markup);
-
-        try {
-            client.execute(message);
-        } catch (TelegramApiException e) {
-            adminAlert(e, chatId);
-        }
-    }
-    private void adminAlert(Exception e, Long userChatId) {
-        SendMessage alert = SendMessage.builder()
-                .chatId(adminChatId)
-                .text(String.format("Ошибка(пользователь: %d)\n%s", userChatId, e.getMessage()))
-                .build();
-        try {
-            client.execute(alert);
-        } catch (TelegramApiException ex) {
-            ex.printStackTrace();
-        }
-    }
     private void handleCallBackQuery(CallbackQuery callbackQuery) {
         var chatId = callbackQuery.getFrom().getId();
         var data = callbackQuery.getData();
 
         switch (data) {
-            case "bot_name" -> sendMessage(chatId, "Меня зовут Кирилл) Будем знакомы");
+            case "bot_name" -> messageSender.sendMessage(chatId, "Меня зовут Кирилл) Будем знакомы");
             case "add_exercise" -> choiceOfExerciseType(chatId);
             case "exercises_list" -> printExercisesList(chatId);
             default -> {
-                sendMessage(chatId, "Неизвестная команда! Выберите что-то из меню");
-                sendMainMenu(chatId);
+                messageSender.sendMessage(chatId, "Неизвестная команда! Выберите что-то из меню");
+                messageSender.sendMainMenu(chatId);
             }
         }
     }
-
     private void choiceOfExerciseType(Long chatId) {
-
         setUserState(chatId, BotState.WAITING_FOR_EXERCISE_TYPE);
-
-        SendMessage message = SendMessage.builder()
-                .text("Выберите тип упражнения")
-                .chatId(chatId)
-                .build();
-
-        List<KeyboardRow> keyboardRows = List.of (
-                new KeyboardRow("На повторы"),
-                new KeyboardRow("На время")
-        );
-        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup(keyboardRows);
-        message.setReplyMarkup(markup);
-
-        try {
-            client.execute(message);
-        } catch (TelegramApiException e) {
-            adminAlert(e, chatId);
-        }
-    }
-    private void sendMessageAndRemoveKeyboard(Long chatId, String text) {
-        SendMessage message = new SendMessage(String.valueOf(chatId), text);
-        ReplyKeyboardRemove keyboardRemove = ReplyKeyboardRemove.builder()
-                .removeKeyboard(true)
-                .build();
-        message.setReplyMarkup(keyboardRemove);
-        try {
-            client.execute(message);
-            System.out.printf("Сообщение: \"%s\" успешно отправлено!\n", text);
-        } catch (TelegramApiException e) {
-            adminAlert(e, chatId);
-        }
+        messageSender.sendChoiceExerciseTypeMenu(chatId);
     }
 
     private void printExercisesList(Long chatId) {
         var exercises = getUserExercises(chatId);
         if (exercises.isEmpty()) {
-            sendMessage(chatId, "Для начала необходимо добавить хотя бы 1 упражнение!");
+            messageSender.sendMessage(chatId, "Для начала необходимо добавить хотя бы 1 упражнение!");
             return;
         }
 
@@ -213,7 +124,7 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             else
                 messageBuilder.append(e.getName() + "\n");
         }
-        sendMessage(chatId, messageBuilder.toString());
+        messageSender.sendMessage(chatId, messageBuilder.toString());
     }
 
     private void handleExerciseType(Long chatId, ExerciseDraft draft, String textType) {
@@ -222,23 +133,23 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         else if (textType.equals("На время"))
             draft.setExerciseType(ExerciseType.TIMED);
         else {
-            sendMessage(chatId, "Пожалуйста, выберите тип упражнения при помощи клавиатуры! Попробуйте снова:");
+            messageSender.sendMessage(chatId, "Пожалуйста, выберите тип упражнения при помощи клавиатуры! Попробуйте снова:");
             return;
         }
 
-        sendMessageAndRemoveKeyboard(chatId, "Отлично! Напишите название упражнения:");
+        messageSender.sendMessageAndRemoveKeyboard(chatId, "Отлично! Напишите название упражнения:");
         setUserState(chatId, BotState.WAITING_FOR_EXERCISE_NAME);
     }
     private void handleExerciseName(Long chatId, ExerciseDraft draft, String name) {
         draft.setName(name.trim());
 
-        sendMessage(chatId, "На какую группу(ы) мышц это упражнение (одним сообщением):");
+        messageSender.sendMessage(chatId, "На какую группу(ы) мышц это упражнение (одним сообщением):");
         setUserState(chatId, BotState.WAITING_FOR_TARGET_MUSCLE_GROUP);
     }
     private void handleMuscleGroup(Long chatId, ExerciseDraft draft, String targetMuscleGroup) {
         draft.setTargetMuscleGroup(targetMuscleGroup.trim());
 
-        sendMessage(chatId, "Количество подходов:");
+        messageSender.sendMessage(chatId, "Количество подходов:");
         setUserState(chatId, BotState.WAITING_FOR_SETS);
     }
     private void handleExerciseSets(Long chatId, ExerciseDraft draft, String sets) {
@@ -249,16 +160,16 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
 
             switch (draft.getExerciseType()) {
                 case REPS -> {
-                    sendMessage(chatId, "Количество повторений в подходе:");
+                    messageSender.sendMessage(chatId, "Количество повторений в подходе:");
                     setUserState(chatId, BotState.WAITING_FOR_REPS);
                 }
                 case TIMED -> {
-                    sendMessage(chatId, "Время выполнения упражнения (сек):");
+                    messageSender.sendMessage(chatId, "Время выполнения упражнения (сек):");
                     setUserState(chatId, BotState.WAITING_FOR_TIME);
                 }
             }
         } catch (NumberFormatException e) {
-            sendMessage(chatId, "Пожалуйста, введите количество подходов целым числом! Попробуйте снова:");
+            messageSender.sendMessage(chatId, "Пожалуйста, введите количество подходов целым числом! Попробуйте снова:");
         }
     }
     private void handleExerciseReps(Long chatId, ExerciseDraft draft, String reps) {
@@ -269,9 +180,9 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             var exercise = convertToExercise(draft);
             saveExercise(chatId, exercise);
 
-            sendMainMenu(chatId);
+            messageSender.sendMainMenu(chatId);
         } catch (NumberFormatException e) {
-            sendMessage(chatId, "Пожалуйста, введите количество повторений целым числом! Попробуйте снова:");
+            messageSender.sendMessage(chatId, "Пожалуйста, введите количество повторений целым числом! Попробуйте снова:");
         }
     }
     private void handleExerciseTime(Long chatId, ExerciseDraft draft, String time) {
@@ -282,9 +193,9 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
             var exercise = convertToExercise(draft);
             saveExercise(chatId, exercise);
 
-            sendMainMenu(chatId);
+            messageSender.sendMainMenu(chatId);
         } catch (NumberFormatException e) {
-            sendMessage(chatId, "Пожалуйста, введите время выполнения целым числом! Попробуйте снова:");
+            messageSender.sendMessage(chatId, "Пожалуйста, введите время выполнения целым числом! Попробуйте снова:");
         }
     }
     private Exercise convertToExercise(ExerciseDraft draft) {
@@ -309,7 +220,7 @@ public class UpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
         exercises.add(exercise);
         userExerciseDrafts.remove(chatId);
 
-        sendMessage(chatId, "Упражнение добавлено!");
+        messageSender.sendMessage(chatId, "Упражнение добавлено!");
         setUserState(chatId, BotState.DEFAULT);
     }
 }
